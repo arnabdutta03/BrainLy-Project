@@ -40,63 +40,64 @@ const saveTags = async (tags: string[]) => {
 ContentRouter.post('/api/v1/content', authCheck, async (req: CustomRequest, res: Response, next: NextFunction) => {
 
     try {
-        const UserObj = req.UserObj
+        if (!req.UserObj)
+            return res.status(401).json({ success: false, message: "Unauthorized" });
 
-        let { title, links, tags }: { title: string; links: string; tags?: string[]; } = req.body;
+        let { title, description, link, tags = [] } :  { title:string; description:string; link:string; tags: string[]; }  = req.body;
 
-        if (!links.includes('https://')) {
-            links = 'https://' + links
+        if (!link.startsWith("http://") && !link.startsWith("https://")) {
+            link = `https://${link}`;
         }
 
-        tags = tags ?? []
+        tags = await saveTags(tags);
 
-
-        if (tags) {
-            tags = await saveTags(tags);
-        }
-
-        const contentInput = {
+        const validatedData = ContentSchema.parse({
             title,
-            links,
-            tags
-        }
+            description,
+            link,
+            tags,
+        });
 
-        const result = ContentSchema.parse(contentInput)
+        await Content.create({
+            ...validatedData,
+            userId: req.UserObj.id,
+        });
 
-        const contentData = await Content.create({
-            title: contentInput.title,
-            link: contentInput.links,
-            tags: contentInput.tags,
-            userId: UserObj.id,
-        })
-
-        if (!contentData)
-            return res.status(500).json({ success: false, message: "Internal Server Error" })
-
-        return res.status(200).json({ success: true, message: 'Content stored successfully' })
+        return res.status(201).json({
+            success: true,
+            message: "Content stored successfully",
+        });
     } catch (error) {
-        console.log('Content Error: ' + error)
-        next(error)
+        console.error("Content Error:", error);
+        return next(error);
     }
 });
+
 
 
 // Get Content of perticular User
 ContentRouter.get('/api/v1/content', authCheck, async (req: CustomRequest, res: Response, next: NextFunction) => {
     try {
+
+        if (!req.UserObj)
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+
         const UserObj = req.UserObj
 
-        const getData = await Content.find({ userId: UserObj.id }).select("_id title link tags").populate("tags", "tag").select("tag");
 
-        if (getData.length === 0)
-            return res.status(404).json({ success: false, message: "No content found" });
+        const contents = await Content.find({ userId: UserObj.id }).select("_id title description link tags createdAt").populate("tags", "tag").lean();
 
-        const formatted = getData.map(data => ({
-            ...data.toObject(),
-            tags: data.tags.map((tags: any) => tags.tag)
+        if (contents.length === 0)
+            return res.status(200).json({ success: true, message: [] });
+
+        const formattedContents = contents.map(content => ({
+            ...content,
+            tags: content.tags.map((tag: any) => tag.tag),
         }));
 
-        return res.status(200).json({ success: false, formatted })
+        console.log(formattedContents);
+
+        return res.status(200).json({ success: true, contents: formattedContents })
 
     } catch (error) {
         console.log('Get Content: ', error);
@@ -108,6 +109,10 @@ ContentRouter.get('/api/v1/content', authCheck, async (req: CustomRequest, res: 
 // Delete Content of perticular User
 ContentRouter.delete('/api/v1/content/:id', authCheck, async (req: CustomRequest, res: Response, next: NextFunction) => {
     try {
+
+        if (!req.UserObj)
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+
         const UserObj = req.UserObj;
 
         const contentId = req.params;
@@ -135,6 +140,9 @@ ContentRouter.delete('/api/v1/content/:id', authCheck, async (req: CustomRequest
 // Update Content of perticular User
 ContentRouter.patch('/api/v1/content/update', authCheck, async (req: CustomRequest, res: Response, next: NextFunction) => {
     try {
+
+        if (!req.UserObj)
+            return res.status(401).json({ success: false, message: "Unauthorized" });
         const UserObj = req.UserObj;
 
         let { id, title, links, tags }: { id?: string; title?: string; links?: string; tags?: string[]; } = req.body;

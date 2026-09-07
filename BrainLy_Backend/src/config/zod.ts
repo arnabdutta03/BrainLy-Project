@@ -29,6 +29,11 @@ const titleSchema = z.string({ message: 'Title expected string' })
     .min(3, { message: "Title must be at least 3 characters long" })
     .max(100, { message: "Title can have maximum 100 characters" })
 
+const descriptionSchema = z.string({ message: 'Description expected string' })
+    .trim()
+    .min(50, { message: "Title must be at least 50 characters long" })
+    .max(250, { message: "Title can have maximum 250 characters" })
+
 
 const linkSchema = z.string({ message: 'Link expected string' }).url({ message: "Invalid URL format" });
 
@@ -37,13 +42,18 @@ const tag = z.string({ message: 'tags expected string' })
     .min(1, { message: "Each tag must be at least 1 characters long" })
     .max(35, { message: "Each tag must be under 35 characters" })
 
-
-const tagSchema = z.array(tag).optional().default([]);
+const tagSchema = z
+    .array(tag)
+    .min(3, { message: "At least 3 tags are required" })
+    .max(10, { message: "You can add a maximum of 10 tags" })
+    .optional()
+    .default([]);
 
 
 export const ContentSchema = z.object({
     title: titleSchema,
-    links: linkSchema,
+    description: descriptionSchema,
+    link: linkSchema,
     tags: tagSchema,
 })
 

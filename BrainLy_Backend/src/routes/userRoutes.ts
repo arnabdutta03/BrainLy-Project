@@ -10,13 +10,29 @@ const userRouter = express.Router();
 
 
 
-// SignUp Endpoint
+// Username Check
+userRouter.post('/api/v1/username', async (req, res) => {
+    try {
+        const username: string = req.body.username;
 
+        const user = await User.findOne({ username });
+
+        if (!user)
+            return res.json({ available: true });
+
+        return res.json({ available: false });
+
+    } catch (error) {
+        console.log('username Error: ' + error);
+    }
+});
+
+// SignUp Endpoint
 userRouter.post('/api/v1/signup', async (req, res, next) => {
 
     try {
         let { username, email, password }: { username: string; email: string; password: string; } = req.body
-
+        
         const userInput = {
             username,
             email,
@@ -70,7 +86,7 @@ userRouter.post('/api/v1/signin', async (req, res, next) => {
         const isCorrect = await argon2.verify(existingUser.password, password + config.pepper)
 
         if (!isCorrect)
-            return res.status(401).json({ success: false, message: 'Incorrect password' })
+            return res.status(401).json({ success: false, message: 'Incorrect Email or Password' })
 
 
         const token = jwt.sign({
@@ -80,9 +96,6 @@ userRouter.post('/api/v1/signin', async (req, res, next) => {
             algorithm: "HS256",
             expiresIn: "1h",
         });
-
-
-        req.headers.token = token
 
         res.cookie('token', token, {
             secure: config.cookie.secure,

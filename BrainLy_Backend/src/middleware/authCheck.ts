@@ -21,7 +21,7 @@ const authCheck = (req: CustomRequest, res: Response, next: NextFunction) => {
 
         if (!decoded)
             return res.status(401).json({ success: false, message: 'Unauthorized user' })
-
+        
         req.UserObj = decoded
 
         next()
